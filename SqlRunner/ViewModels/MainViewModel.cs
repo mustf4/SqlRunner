@@ -138,7 +138,6 @@ namespace SqlRunner.ViewModels
                 {
                     Statements.AddRange(Enum.GetValues<Statement>());
                     SelectedDatabase = Databases[0];
-                    SelectedStatement = Statements[0];
                 });
             });
         }
