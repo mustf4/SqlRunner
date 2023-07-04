@@ -1,0 +1,18 @@
+﻿<Window x:Class="SqlRunner.Views.PreferencesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:SqlRunner.ViewModels"
+        Title="PreferencesWindow" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        x:Name="preferences" Icon="../Preferences.ico">
+    <Window.DataContext>
+        <vm:PreferencesViewModel/>
+    </Window.DataContext>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <TextBox Text="{Binding ConnectionString}" Style="{StaticResource placeHolder}" Tag="Input Connection String here" Width="500" Height="75" Margin="5,5,5,0"/>
+        <Button Grid.Row="1" Command="{Binding SaveCommand}" CommandParameter="{Binding ElementName=preferences, Mode=OneWay}" Content="Save" Margin="5"/>
+    </Grid>
+</Window>

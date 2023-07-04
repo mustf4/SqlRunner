@@ -14,16 +14,10 @@ namespace SqlRunner.Handlers
             _canExecute = canExecute;
         }
 
-        public event EventHandler? CanExecuteChanged;
+        public event EventHandler CanExecuteChanged;
 
-        public bool CanExecute(object? parameter)
-        {
-            return _canExecute;
-        }
+        public bool CanExecute(object parameter) => _canExecute;
 
-        public void Execute(object? parameter)
-        {
-            _action();
-        }
+        public void Execute(object parameter) => _action();
     }
 }

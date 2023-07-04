@@ -2,11 +2,14 @@
 using SqlRunner.Handlers;
 using SqlRunner.Models;
 using SqlRunner.Repository;
+using SqlRunner.Utils;
+using SqlRunner.Views;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
@@ -19,6 +22,7 @@ namespace SqlRunner.ViewModels
         private Table _selectedTable;
         private Statement? _selectedStatement;
         private ICommand _runScriptCommand;
+        private ICommand _preferencesCommand;
         private string _selectRowNumber = "1";
         private bool _isSelectSelected;
         private bool _isUpdateSelected;
@@ -29,12 +33,14 @@ namespace SqlRunner.ViewModels
         private DataTable _resultTable;
         private bool _hasResult;
         private bool _isRunScriptEnabled;
+        private string _resultStatusText;
+        private string _affectedRecordsInfo;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         public ObservableCollection<Database> Databases { get; set; } = new ObservableCollection<Database>();
         public ObservableCollection<Table> Tables { get; set; } = new ObservableCollection<Table>();
-        public List<Statement> Statements { get; set; } = new List<Statement>();
+        public List<Statement> Statements { get; set; } = Enum.GetValues<Statement>().ToList();
         public Database SelectedDatabase
         {
             get => _selectedDatabase;
@@ -128,22 +134,54 @@ namespace SqlRunner.ViewModels
             set => PropertyChanged.ChangeAndNotify(ref _isRunScriptEnabled, value, () => IsRunScriptEnabled);
         }
 
+        public string ResultStatusText
+        {
+            get => _resultStatusText;
+            set => PropertyChanged.ChangeAndNotify(ref _resultStatusText, value, () => ResultStatusText);
+        }
+
+        public string AffectedRecordsInfo
+        {
+            get => _affectedRecordsInfo;
+            set => PropertyChanged.ChangeAndNotify(ref _affectedRecordsInfo, value, () => AffectedRecordsInfo);
+        }
+
         public ICommand RunScriptClickCommand => _runScriptCommand ??= new CommandHandler(() => RunScript(), true);
 
+        public ICommand PreferencesCommand => _preferencesCommand ??= new CommandHandler(() => ShowPreferences(), true);
+
         public MainViewModel()
+        {
+            Preferences preferences = GetPreferences();
+            while (string.IsNullOrWhiteSpace(preferences.ConnectionString))
+            {
+                ShowPreferences();
+                preferences = GetPreferences();
+            }
+
+            InitializeDatabasesAndTables();
+        }
+
+        private static Preferences GetPreferences()
+        {
+            return Serializer.Deserialize<Preferences>(Settings.PreferencesPath);
+        }
+
+        private void InitializeDatabasesAndTables()
         {
             InitializeDatabases().ContinueWith((t) =>
             {
                 App.Current.Dispatcher.Invoke(() =>
                 {
-                    Statements.AddRange(Enum.GetValues<Statement>());
-                    SelectedDatabase = Databases[0];
+                    Database lastPurchasePriceDb = Databases.FirstOrDefault(db => db.Name == "LastPurchasePrices");
+                    SelectedDatabase = lastPurchasePriceDb ?? Databases[0];
                 });
             });
         }
 
         private async Task InitializeDatabases()
         {
+            Databases.Clear();
             DatabaseModel dbModel = new();
             List<string> databases = await dbModel.GetDatabases();
             foreach (string database in databases)
@@ -157,6 +195,9 @@ namespace SqlRunner.ViewModels
             ResultTable = new DataTable();
             HasResult = false;
             string sql;
+            string verb;
+            string noun;
+            int affectedRowsCount;
             SanitizeWhereStatement();
 
             if (SelectedTable == null)
@@ -171,8 +212,7 @@ namespace SqlRunner.ViewModels
                         sql += $" where {WhereStatement}";
                     }
 
-                    ResultTable = await DatabaseModel.Select(sql);
-                    HasResult = ResultTable != null;
+                    await DisplayAffectedRows(sql);
                     break;
                 case Statement.Update:
                     if (string.IsNullOrWhiteSpace(UpdateStatement))
@@ -189,11 +229,12 @@ namespace SqlRunner.ViewModels
                     SanitizeUpdateStatement();
 
                     sql = $"update {SelectedDatabase.Name}.{SelectedTable.Name} set {UpdateStatement} where {WhereStatement}";
-                    await DatabaseModel.Query(sql);
+                    affectedRowsCount = await DatabaseModel.QueryAsync(sql);
 
-                    sql = $"select * from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
-                    ResultTable = await DatabaseModel.Select(sql);
-                    HasResult = ResultTable != null;
+                    verb = affectedRowsCount > 1 ? "are" : "is";
+                    noun = affectedRowsCount > 1 ? "rows" : "row";
+                    AffectedRecordsInfo = $"There {verb} {affectedRowsCount} {noun} affected";
+                    await DisplayAffectedRows();
                     break;
                 case Statement.Delete:
                     if (string.IsNullOrWhiteSpace(WhereStatement))
@@ -203,15 +244,38 @@ namespace SqlRunner.ViewModels
                     }
 
                     sql = $"delete from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
-                    await DatabaseModel.Query(sql);
+                    affectedRowsCount = await DatabaseModel.QueryAsync(sql);
 
-                    sql = $"select * from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
-                    ResultTable = await DatabaseModel.Select(sql);
-                    HasResult = ResultTable != null;
+                    verb = affectedRowsCount > 1 ? "are" : "is";
+                    noun = affectedRowsCount > 1 ? "rows" : "row";
+                    AffectedRecordsInfo = $"There {verb} {affectedRowsCount} {noun} affected";
+
+                    await DisplayAffectedRows();
                     break;
                 default:
                     break;
             }
+        }
+
+        private async Task DisplayAffectedRows(string sql = null)
+        {
+            if (string.IsNullOrWhiteSpace(sql))
+                sql = $"select * from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
+
+            ResultTable = await DatabaseModel.SelectAsync(sql);
+            HasResult = ResultTable != null;
+            if (HasResult)
+                ResultStatusText = $"{ResultTable.Rows.Count} rows";
+        }
+
+        private void ShowPreferences()
+        {
+            PreferencesWindow preferencesWindow = new();
+            preferencesWindow.ShowDialog();
+
+            Preferences preferences = GetPreferences();
+            if (!string.IsNullOrWhiteSpace(preferences.ConnectionString))
+                InitializeDatabasesAndTables();
         }
 
         private void SanitizeUpdateStatement()

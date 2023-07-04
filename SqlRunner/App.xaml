@@ -6,7 +6,6 @@
     <Application.Resources>
         <Style x:Key="radioListBox" TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Margin" Value="5"/>
             <Setter Property="Background" Value="{x:Null}"/>
             <Setter Property="ItemContainerStyle">
                 <Setter.Value>
@@ -15,7 +14,7 @@
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
                                     <Grid Background="Transparent" Margin="0,3">
-                                        <RadioButton Focusable="False" IsHitTestVisible="False" IsChecked="{TemplateBinding IsSelected}">
+                                        <RadioButton Focusable="False" IsHitTestVisible="False" IsChecked="{Binding RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay, Path=IsSelected}">
                                             <ContentPresenter/>
                                         </RadioButton>
                                     </Grid>
@@ -41,6 +40,8 @@
                                                 UpdateSourceTrigger=PropertyChanged}"
                                  x:Name="textSource" 
                                  Background="Transparent" 
+                                 TextWrapping="{TemplateBinding TextWrapping}"
+                                 AcceptsReturn="{TemplateBinding AcceptsReturn}"
                                  Panel.ZIndex="2" />
                             <TextBox Padding="{TemplateBinding Padding}" Text="{TemplateBinding Tag}" Background="{TemplateBinding Background}" Panel.ZIndex="1">
                                 <TextBox.Style>

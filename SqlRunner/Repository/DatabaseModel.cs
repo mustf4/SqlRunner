@@ -1,4 +1,6 @@
-﻿using System;
+﻿using SqlRunner.Models;
+using SqlRunner.Utils;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -12,7 +14,7 @@ namespace SqlRunner.Repository
         public async Task<List<string>> GetDatabases()
         {
             string sql = "SELECT name, database_id, create_date FROM sys.databases;";
-            DataTable dt = await Select(sql);
+            DataTable dt = await SelectAsync(sql);
             if (dt == null)
                 return new List<string>();
 
@@ -35,7 +37,7 @@ namespace SqlRunner.Repository
                 return new List<string>();
 
             string sql = $"SELECT table_name, TABLE_SCHEMA FROM {databaseName}.INFORMATION_SCHEMA.TABLES WHERE table_type = 'BASE TABLE'";
-            DataTable dt = await Select(sql);
+            DataTable dt = await SelectAsync(sql);
             if (dt == null)
                 return new List<string>();
 
@@ -52,7 +54,7 @@ namespace SqlRunner.Repository
             return result;
         }
 
-        public static async Task<DataTable> Select(string sql)
+        public static async Task<DataTable> SelectAsync(string sql)
         {
             SqlConnection connnection = null;
             try
@@ -70,7 +72,7 @@ namespace SqlRunner.Repository
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message);
+                App.Current.Dispatcher.Invoke(() => MessageBox.Show(ex.Message));
                 return null;
             }
             finally
@@ -79,7 +81,7 @@ namespace SqlRunner.Repository
             }
         }
 
-        public static async Task Query(string sql)
+        public static async Task<int> QueryAsync(string sql)
         {
             SqlConnection connnection = null;
             try
@@ -90,11 +92,12 @@ namespace SqlRunner.Repository
                 SqlCommand cmd = connnection.CreateCommand();
                 cmd.CommandText = sql;
 
-                await cmd.ExecuteNonQueryAsync();
+                return await cmd.ExecuteNonQueryAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message);
+                App.Current.Dispatcher.Invoke(() => MessageBox.Show(ex.Message));
+                return 0;
             }
             finally
             {
@@ -104,8 +107,10 @@ namespace SqlRunner.Repository
 
         private static SqlConnection GetConnection()
         {
-            //SqlConnection thisConnection = new(@"Server=S-KV-CENTER-V20;Database=LastPurchasePrices;Trusted_Connection=Yes;TrustServerCertificate=Yes");
-            return new(@"Server=.\;Database=GoldenSafeguard;Trusted_Connection=Yes;TrustServerCertificate=Yes");
+            Preferences preferences = Serializer.Deserialize<Preferences>(Settings.PreferencesPath);
+            //return new(@"Server=S-KV-CENTER-V20;Database=LastPurchasePrices;Trusted_Connection=Yes;TrustServerCertificate=Yes");
+            //return new(@"Server=.\;Database=GoldenSafeguard;Trusted_Connection=Yes;TrustServerCertificate=Yes");
+            return new(preferences.ConnectionString);
         }
     }
 }

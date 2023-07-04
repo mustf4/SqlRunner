@@ -7,7 +7,24 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Preferences.ico" />
+    <None Remove="SqlChecked.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="SqlChecked.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Data.SqlClient" Version="4.8.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Preferences.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
 </Project>
