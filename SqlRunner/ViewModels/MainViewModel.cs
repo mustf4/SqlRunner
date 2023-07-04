@@ -42,7 +42,7 @@ namespace SqlRunner.ViewModels
 
         public ObservableCollection<Database> Databases { get; set; } = new();
         public ObservableCollection<Table> Tables { get; set; } = new();
-        public ObservableCollection<Column> Columns { get; set; } = new();
+        public ObservableCollection<Column> OrderColumns { get; set; } = new();
         public List<Statement> Statements => Enum.GetValues<Statement>().ToList();
         public List<string> OrderDirections => new() { "ASC", "DESC" };
         public Database SelectedDatabase
@@ -57,10 +57,10 @@ namespace SqlRunner.ViewModels
             set => PropertyChanged.ChangeAndNotify(ref _selectedTable, value, () => SelectedTable, async () => await OnSelectedTableChangedAsync());
         }
 
-        public Column SelectedColumn
+        public Column SelectedOrderColumn
         {
             get => _selectedColumn;
-            set => PropertyChanged.ChangeAndNotify(ref _selectedColumn, value, () => SelectedColumn);
+            set => PropertyChanged.ChangeAndNotify(ref _selectedColumn, value, () => SelectedOrderColumn);
         }
 
         public Statement? SelectedStatement
@@ -294,8 +294,8 @@ namespace SqlRunner.ViewModels
             if (string.IsNullOrWhiteSpace(sql))
                 sql = $"select * from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
 
-            if (!string.IsNullOrWhiteSpace(SelectedColumn?.Name))
-                sql += $" order by {SelectedColumn.Name} {SelectedOrderDirection}";
+            if (!string.IsNullOrWhiteSpace(SelectedOrderColumn?.Name))
+                sql += $" order by {SelectedOrderColumn.Name} {SelectedOrderDirection}";
 
             ResultTable = await DatabaseModel.SelectAsync(sql);
             HasResult = ResultTable != null;
@@ -383,18 +383,18 @@ namespace SqlRunner.ViewModels
 
         private async Task OnSelectedTableChangedAsync()
         {
-            SelectedColumn = null;
-            Columns.Clear();
+            SelectedOrderColumn = null;
+            OrderColumns.Clear();
 
             if (string.IsNullOrWhiteSpace(SelectedDatabase?.Name) || string.IsNullOrWhiteSpace(SelectedTable?.Name))
                 return;
 
             List<Column> columns = await DatabaseModel.GetColumns(SelectedDatabase.Name, SelectedTable.Name);
             foreach (Column column in columns)
-                Columns.Add(column);
+                OrderColumns.Add(column);
 
-            if (Columns.Count > 0)
-                SelectedColumn = Columns[0];
+            if (OrderColumns.Count > 0)
+                SelectedOrderColumn = OrderColumns[0];
 
             CheckRunScriptVisibility();
         }
