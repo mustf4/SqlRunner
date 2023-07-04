@@ -23,7 +23,7 @@ namespace SqlRunner.ViewModels
         private Statement? _selectedStatement;
         private ICommand _runScriptCommand;
         private ICommand _preferencesCommand;
-        private string _selectRowNumber = "1";
+        private string _selectRowNumber = "10";
         private bool _isSelectSelected;
         private bool _isUpdateSelected;
         private bool _isDeleteSelected;
@@ -35,12 +35,16 @@ namespace SqlRunner.ViewModels
         private bool _isRunScriptEnabled;
         private string _resultStatusText;
         private string _affectedRecordsInfo;
+        private Column _selectedColumn;
+        private string _selectedOrderDirection;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public ObservableCollection<Database> Databases { get; set; } = new ObservableCollection<Database>();
-        public ObservableCollection<Table> Tables { get; set; } = new ObservableCollection<Table>();
-        public List<Statement> Statements { get; set; } = Enum.GetValues<Statement>().ToList();
+        public ObservableCollection<Database> Databases { get; set; } = new();
+        public ObservableCollection<Table> Tables { get; set; } = new();
+        public ObservableCollection<Column> Columns { get; set; } = new();
+        public List<Statement> Statements => Enum.GetValues<Statement>().ToList();
+        public List<string> OrderDirections => new() { "ASC", "DESC" };
         public Database SelectedDatabase
         {
             get => _selectedDatabase;
@@ -50,7 +54,13 @@ namespace SqlRunner.ViewModels
         public Table SelectedTable
         {
             get => _selectedTable;
-            set => PropertyChanged.ChangeAndNotify(ref _selectedTable, value, () => SelectedTable, OnSelectedTableChanged);
+            set => PropertyChanged.ChangeAndNotify(ref _selectedTable, value, () => SelectedTable, async () => await OnSelectedTableChangedAsync());
+        }
+
+        public Column SelectedColumn
+        {
+            get => _selectedColumn;
+            set => PropertyChanged.ChangeAndNotify(ref _selectedColumn, value, () => SelectedColumn);
         }
 
         public Statement? SelectedStatement
@@ -72,12 +82,18 @@ namespace SqlRunner.ViewModels
                     }
                     else if (string.IsNullOrWhiteSpace(value))
                     {
-                        _selectRowNumber = "1";
+                        _selectRowNumber = "10";
                     }
 
                     PropertyChanged.Notify(() => SelectRowNumber);
                 }
             }
+        }
+
+        public string SelectedOrderDirection
+        { 
+            get => _selectedOrderDirection; 
+            set => PropertyChanged.ChangeAndNotify(ref _selectedOrderDirection, value, () => SelectedOrderDirection); 
         }
 
         public bool IsSelectSelected
@@ -123,7 +139,7 @@ namespace SqlRunner.ViewModels
         }
 
         public bool HasResult
-        { 
+        {
             get => _hasResult;
             set => PropertyChanged.ChangeAndNotify(ref _hasResult, value, () => HasResult);
         }
@@ -152,6 +168,9 @@ namespace SqlRunner.ViewModels
 
         public MainViewModel()
         {
+            SelectedStatement = Statement.Select;
+            SelectedOrderDirection = OrderDirections[0];
+
             Preferences preferences = GetPreferences();
             while (string.IsNullOrWhiteSpace(preferences.ConnectionString))
             {
@@ -174,7 +193,7 @@ namespace SqlRunner.ViewModels
                 App.Current.Dispatcher.Invoke(() =>
                 {
                     Database lastPurchasePriceDb = Databases.FirstOrDefault(db => db.Name == "LastPurchasePrices");
-                    SelectedDatabase = lastPurchasePriceDb ?? Databases[0];
+                    SelectedDatabase = lastPurchasePriceDb ?? (Databases.Any() ? Databases[0] : null);
                 });
             });
         }
@@ -194,10 +213,13 @@ namespace SqlRunner.ViewModels
         {
             ResultTable = new DataTable();
             HasResult = false;
+            AffectedRecordsInfo = ResultStatusText = null;
             string sql;
             string verb;
             string noun;
             int affectedRowsCount;
+            DataTable affectingResult;
+            SanitizeUpdateStatement();
             SanitizeWhereStatement();
 
             if (SelectedTable == null)
@@ -226,7 +248,11 @@ namespace SqlRunner.ViewModels
                         return;
                     }
 
-                    SanitizeUpdateStatement();
+                    sql = $"select count(*) from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
+                    affectingResult = await DatabaseModel.SelectAsync(sql);
+
+                    if (MessageBox.Show($"This run is going to affect the following count of rows: {affectingResult.Rows.Count}", "Update confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) != MessageBoxResult.Yes)
+                        return;
 
                     sql = $"update {SelectedDatabase.Name}.{SelectedTable.Name} set {UpdateStatement} where {WhereStatement}";
                     affectedRowsCount = await DatabaseModel.QueryAsync(sql);
@@ -242,6 +268,12 @@ namespace SqlRunner.ViewModels
                         MessageBox.Show("Please fill 'WHERE' conditions first");
                         return;
                     }
+
+                    sql = $"select count(*) from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
+                    affectingResult = await DatabaseModel.SelectAsync(sql);
+
+                    if (MessageBox.Show($"This run is going to affect the following count of rows: {affectingResult.Rows.Count}", "Update confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) != MessageBoxResult.Yes)
+                        return;
 
                     sql = $"delete from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
                     affectedRowsCount = await DatabaseModel.QueryAsync(sql);
@@ -261,6 +293,9 @@ namespace SqlRunner.ViewModels
         {
             if (string.IsNullOrWhiteSpace(sql))
                 sql = $"select * from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
+
+            if (!string.IsNullOrWhiteSpace(SelectedColumn?.Name))
+                sql += $" order by {SelectedColumn.Name} {SelectedOrderDirection}";
 
             ResultTable = await DatabaseModel.SelectAsync(sql);
             HasResult = ResultTable != null;
@@ -283,6 +318,7 @@ namespace SqlRunner.ViewModels
             if (string.IsNullOrWhiteSpace(UpdateStatement))
                 return;
 
+            UpdateStatement = FormatText(UpdateStatement);
             UpdateStatement = UpdateStatement.Replace("set ", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
         }
 
@@ -291,7 +327,36 @@ namespace SqlRunner.ViewModels
             if (string.IsNullOrWhiteSpace(WhereStatement))
                 return;
 
+            WhereStatement = FormatText(WhereStatement);
             WhereStatement = WhereStatement.Replace("where ", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+
+            int unsupportedSymbolsIndex = WhereStatement.IndexOf("--");
+            if (unsupportedSymbolsIndex > -1)
+                WhereStatement = WhereStatement[..unsupportedSymbolsIndex];
+
+            unsupportedSymbolsIndex = WhereStatement.IndexOf(";");
+            if (unsupportedSymbolsIndex > -1)
+                WhereStatement = WhereStatement[..unsupportedSymbolsIndex];
+        }
+
+        private static string FormatText(string statementText)
+        {
+            List<char> result = new();
+
+            foreach (char c in statementText)
+            {
+                if (result.Count == 0)
+                {
+                    if (c != ' ')
+                        result.Add(c);
+                }
+                else if (c == ' ' && result.Last() == ' ')
+                    continue;
+                else
+                    result.Add(c);
+            }
+
+            return new string(result.ToArray()).Trim();
         }
 
         private async void OnSelectedDatabaseChanged()
@@ -316,8 +381,21 @@ namespace SqlRunner.ViewModels
             }
         }
 
-        private void OnSelectedTableChanged()
+        private async Task OnSelectedTableChangedAsync()
         {
+            SelectedColumn = null;
+            Columns.Clear();
+
+            if (string.IsNullOrWhiteSpace(SelectedDatabase?.Name) || string.IsNullOrWhiteSpace(SelectedTable?.Name))
+                return;
+
+            List<Column> columns = await DatabaseModel.GetColumns(SelectedDatabase.Name, SelectedTable.Name);
+            foreach (Column column in columns)
+                Columns.Add(column);
+
+            if (Columns.Count > 0)
+                SelectedColumn = Columns[0];
+
             CheckRunScriptVisibility();
         }
 

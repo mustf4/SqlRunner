@@ -54,6 +54,39 @@ namespace SqlRunner.Repository
             return result;
         }
 
+        public static async Task<List<Column>> GetColumns(string databaseName, string tableName)
+        {
+            if (string.IsNullOrEmpty(tableName))
+                return new();
+
+            string schema = tableName[..tableName.IndexOf(".")];
+            tableName = tableName[(tableName.IndexOf(".") + 1)..];
+
+            string sql = @$"SELECT COLUMN_NAME, ORDINAL_POSITION, DATA_TYPE
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = N'{tableName}' AND TABLE_CATALOG = '{databaseName}'";
+
+            DataTable dt = await SelectAsync(sql);
+            if (dt == null)
+                return new();
+
+            List<Column> result = new();
+            foreach (DataRow row in dt.Rows)
+            {
+                if (row.ItemArray.Length > 0 && row.ItemArray[0] != null && !string.IsNullOrWhiteSpace(row.ItemArray[0]!.ToString()))
+                {
+                    result.Add(new()
+                    {
+                        Name = row.ItemArray[0].ToString(),
+                        Position = int.Parse(row.ItemArray[1].ToString()),
+                        Type = row.ItemArray[2].ToString()
+                    });
+                }
+            }
+
+            return result;
+        }
+
         public static async Task<DataTable> SelectAsync(string sql)
         {
             SqlConnection connnection = null;
@@ -66,7 +99,7 @@ namespace SqlRunner.Repository
                 cmd.CommandText = sql;
 
                 SqlDataAdapter sda = new(cmd);
-                DataTable dt = new("tables");
+                DataTable dt = new("Table");
                 sda.Fill(dt);
                 return dt;
             }
