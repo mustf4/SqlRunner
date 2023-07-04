@@ -62,7 +62,8 @@ namespace SqlRunner.Repository
             string schema = tableName[..tableName.IndexOf(".")];
             tableName = tableName[(tableName.IndexOf(".") + 1)..];
 
-            string sql = @$"SELECT COLUMN_NAME, ORDINAL_POSITION, DATA_TYPE
+            string sql = @$"USE {databaseName}
+                            SELECT COLUMN_NAME, ORDINAL_POSITION, DATA_TYPE
                             FROM INFORMATION_SCHEMA.COLUMNS
                             WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = N'{tableName}' AND TABLE_CATALOG = '{databaseName}'";
 
@@ -85,6 +86,17 @@ namespace SqlRunner.Repository
             }
 
             return result;
+        }
+
+        public static async Task<int> GetCountAsync(string dbName, string tableName, string whereStatement)
+        {
+            string sql = $"select count(*) from {dbName}.{tableName} where {whereStatement}";
+
+            DataTable dt = await SelectAsync(sql);
+            DataRowCollection rows = dt?.Rows;
+            return rows != null && rows.Count == 1 && rows[0].ItemArray.Length > 0 && rows[0].ItemArray[0] != null && !string.IsNullOrWhiteSpace(rows[0].ItemArray[0]!.ToString())
+                ? int.Parse(rows[0].ItemArray[0].ToString())
+                : 0;
         }
 
         public static async Task<DataTable> SelectAsync(string sql)

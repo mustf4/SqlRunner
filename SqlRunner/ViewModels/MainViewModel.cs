@@ -218,7 +218,7 @@ namespace SqlRunner.ViewModels
             string verb;
             string noun;
             int affectedRowsCount;
-            DataTable affectingResult;
+            int affectingCount;
             SanitizeUpdateStatement();
             SanitizeWhereStatement();
 
@@ -248,10 +248,9 @@ namespace SqlRunner.ViewModels
                         return;
                     }
 
-                    sql = $"select count(*) from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
-                    affectingResult = await DatabaseModel.SelectAsync(sql);
+                    affectingCount = await DatabaseModel.GetCountAsync(SelectedDatabase.Name, SelectedTable.Name, WhereStatement);
 
-                    if (MessageBox.Show($"This run is going to affect the following count of rows: {affectingResult.Rows.Count}", "Update confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) != MessageBoxResult.Yes)
+                    if (MessageBox.Show($"This run is going to affect the following count of rows: {affectingCount}", "Update confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) != MessageBoxResult.Yes)
                         return;
 
                     sql = $"update {SelectedDatabase.Name}.{SelectedTable.Name} set {UpdateStatement} where {WhereStatement}";
@@ -269,10 +268,9 @@ namespace SqlRunner.ViewModels
                         return;
                     }
 
-                    sql = $"select count(*) from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
-                    affectingResult = await DatabaseModel.SelectAsync(sql);
+                    affectingCount = await DatabaseModel.GetCountAsync(SelectedDatabase.Name, SelectedTable.Name, WhereStatement);
 
-                    if (MessageBox.Show($"This run is going to affect the following count of rows: {affectingResult.Rows.Count}", "Update confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) != MessageBoxResult.Yes)
+                    if (MessageBox.Show($"This run is going to affect the following count of rows: {affectingCount}", "Delete confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes) != MessageBoxResult.Yes)
                         return;
 
                     sql = $"delete from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
