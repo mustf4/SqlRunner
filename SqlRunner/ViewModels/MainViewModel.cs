@@ -279,6 +279,7 @@ namespace SqlRunner.ViewModels
                     verb = affectedRowsCount > 1 ? "are" : "is";
                     noun = affectedRowsCount > 1 ? "rows" : "row";
                     AffectedRecordsInfo = $"There {verb} {affectedRowsCount} {noun} affected";
+                    SelectedStatement = Statement.Select;
 
                     await DisplayAffectedRows();
                     break;
