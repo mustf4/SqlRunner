@@ -4,18 +4,12 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net6.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>SqlChecked.ico</ApplicationIcon>
+    <ApplicationIcon>sql-check.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="Preferences.ico" />
-    <None Remove="SqlChecked.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Resource Include="SqlChecked.ico">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Resource>
+    <None Remove="sql-check.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,6 +18,9 @@
 
   <ItemGroup>
     <Resource Include="Preferences.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="sql-check.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>

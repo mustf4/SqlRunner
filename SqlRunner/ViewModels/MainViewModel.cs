@@ -37,6 +37,7 @@ namespace SqlRunner.ViewModels
         private string _affectedRecordsInfo;
         private Column _selectedColumn;
         private string _selectedOrderDirection;
+        private bool _isOrderingSelected;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -118,6 +119,12 @@ namespace SqlRunner.ViewModels
         {
             get => _isDatabaseSelected;
             set => PropertyChanged.ChangeAndNotify(ref _isDatabaseSelected, value, () => IsDatabaseSelected);
+        }
+
+        public bool IsOrderingSelected
+        {
+            get => _isOrderingSelected;
+            set => PropertyChanged.ChangeAndNotify(ref _isOrderingSelected, value, () => IsOrderingSelected);
         }
 
         public string WhereStatement
@@ -293,7 +300,7 @@ namespace SqlRunner.ViewModels
             if (string.IsNullOrWhiteSpace(sql))
                 sql = $"select * from {SelectedDatabase.Name}.{SelectedTable.Name} where {WhereStatement}";
 
-            if (!string.IsNullOrWhiteSpace(SelectedOrderColumn?.Name))
+            if (IsOrderingSelected && !string.IsNullOrWhiteSpace(SelectedOrderColumn?.Name))
                 sql += $" order by {SelectedOrderColumn.Name} {SelectedOrderDirection}";
 
             ResultTable = await DatabaseModel.SelectAsync(sql);
